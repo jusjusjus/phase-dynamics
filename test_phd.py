@@ -3,21 +3,24 @@
 from phd.core import set_period
 # set_period(1.0)
 
+import phd
 import numpy as np
+from phd.core import period
 import phd.matplotlib as pht
 import matplotlib.pyplot as plt
-from phd.core import unmod, threshold_data, period
 
-# plt.plot(np.arange(0., 10.))
-# pht.xticks_centered(fontsize=20)
-# pht.yticks_centered(fontsize=20)
-# plt.show()
+
+def test_matplotlib():
+    plt.plot(np.arange(0., 10.))
+    pht.xticks_centered(fontsize=20)
+    pht.yticks_centered(fontsize=20)
+    plt.show()
 
 
 def test_unmod():
     x = period * np.arange(0.0, 10., 0.1)
     x_mod = np.mod(x, period)
-    y = unmod(x_mod)
+    y = phd.unmod(x_mod)
     assert np.all(x-y == 0.0)
 
 
@@ -26,7 +29,7 @@ def test_threshold_data():
     t = np.arange(0., 20., dt)
     x = np.sin(t)
     threshold = 0.9
-    segments = threshold_data(x, threshold)
+    segments = phd.threshold_data(x, threshold)
     for seg in segments:
         assert all(x[seg] > threshold)
     # plt.plot(t, x, 'ko-')
@@ -38,5 +41,33 @@ def test_threshold_data():
     # plt.show()
 
 
+def test_poincare_times():
+    assert period == 2.0*np.pi
+    dt = 0.1
+    T  = 1.0
+    x0 = 0.#3.0*np.pi/2
+
+    w = 2.0*np.pi/T
+    t = T * np.arange(0., 10., dt)
+    Wt = 0.2 * np.sqrt(dt) * np.random.randn(t.size).cumsum()
+    x = w * t + Wt
+    x_mod = phd.mod(x)
+
+    idx, ti = phd.poincare_times(x, x0=x0, interp=True)
+    Ti = dt * ti
+    
+    assert all(Ti > 0.9 * T)
+
+    # plt.plot(t, x_mod, 'ko-')
+    # for i in idx:
+    #     plt.axvline(x=dt*i, lw=2.0)
+    # plt.axhline(y=x0)
+    # idx = idx.astype(int)
+    # plt.plot(t[idx], x[idx], 'ro')
+    # pht.yticks()
+    # plt.show()
+
+
 test_unmod()
 test_threshold_data()
+test_poincare_times()

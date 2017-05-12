@@ -73,53 +73,55 @@ CONTAINS
   END SUBROUTINE
 
 
-  SUBROUTINE poincare_times_no_false_returns (idx, ti, n_idx, x_mod, x, num_samples)
+  SUBROUTINE poincare_times_no_false_returns (cross_idx, ti, num_crossings, x_mod, x, num_samples)
 
   ! idx stores the indicies of the crossings
   ! ti stores the time indicies of return
-  ! n_idx stores the number of crossings
+  ! num_crossings stores the number of crossings
   ! x_mod is modded phase
-  ! x is phase (unmodded?)
-  ! num_samples is num_samples of x
-  ! function stores positive AND negative crossings of th0
+  ! x is unmodded phase
+  ! num_samples is length of x
+  ! function stores positive times when x crosses 0 
 
   integer, dimension(num_samples), intent(in) :: x_mod, x
   integer, intent(in) :: num_samples
-  integer, INTENT(out) :: n_idx
-  integer, dimension(num_samples), intent(out) :: idx
+  integer, INTENT(out) :: num_crossings
+  integer, dimension(num_samples), intent(out) :: cross_idx
   integer, dimension(num_samples), intent(out) :: ti
-    integer :: i, previous_crossing = 0
-    double precision :: dtht_mod, dtht
-    n_idx = 1 ! number of crossings
+    integer :: i, last_crossing = 0
+    double precision :: dx_mod, dx
+    double precision :: threshold
+    num_crossings = 1 ! number of crossings
+    threshold = -p2
 
 
     DO i = 2, num_samples
     ! find first positive crossing of phase, x = 0
-      IF (x_mod(i-1)-x_mod(i) > 1.5*p2) THEN
+      dx_mod = x_mod(i)-x_mod(i-1)
+      IF (dx_mod < threshold) THEN
       ! only computes positiv crossings
-        idx(n_idx) = i-1 ! saves value before the crossing
-        previous_crossing = idx(n_idx)
+        cross_idx(num_crossings) = i-1 ! saves value before the crossing
+        last_crossing = cross_idx(num_crossings)
         EXIT
       END IF
     END DO
 
-    DO i = i, num_samples
+    DO i = i+1, num_samples
     ! ... now for the rest
-      dtht_mod = x_mod(i-1)-x_mod(i)
-      dtht = x(i-1)-x(previous_crossing)
-
-      IF (dtht_mod > 1.5*p2 .AND. dtht > 1.5*p2) THEN
+      dx_mod = x_mod(i)-x_mod(i-1)
+      dx     = x(i-1)-x(last_crossing)
+      IF (dx_mod < threshold .AND. dx > -threshold) THEN
       ! only computes positiv crossings, and only if one oscillation was performed
-        ti(n_idx) = i-1-previous_crossing
-        n_idx = n_idx + 1
-        idx(n_idx) = i-1 ! saves value before the crossing
-        previous_crossing = idx(n_idx)
+        ti(num_crossings) = i-1-last_crossing
+        num_crossings = num_crossings + 1
+        cross_idx(num_crossings) = i-1 ! saves value before the crossing
+        last_crossing = cross_idx(num_crossings)
       END IF
     END DO
   END SUBROUTINE poincare_times_no_false_returns
 
 
-  SUBROUTINE poincare_times_interpolate (idx, ti, num_zeros, x, num_samples, idx_interp, ti_interp)
+  SUBROUTINE poincare_times_interpolate (idx, ti, num_crossings, x, num_samples, idx_interp, ti_interp)
 
   ! ti(i) is the discrete time between two crossings
   ! idx(i) is the index of the step before 0
@@ -127,38 +129,28 @@ CONTAINS
   ! times are the output where we will store the correct return times (= approx index)
   ! n: number of approximate zeros that were found
 
-  integer, dimension(num_zeros), intent(in) :: idx, ti
-  integer, intent(in) :: num_zeros
+  integer, dimension(num_crossings), intent(in) :: idx, ti
+  integer, intent(in) :: num_crossings
   double precision, dimension(num_samples), intent(in) :: x
   integer, intent(in) :: num_samples
-  double precision, dimension(num_zeros), intent(out) :: idx_interp, ti_interp
+  double precision, dimension(num_crossings), intent(out) :: idx_interp, ti_interp
 
     integer :: i, j, j1, JJ, JJ1
     double precision :: x_j, x_j1, x_jj, x_jj1
-    DO i = 1, num_zeros
-      j1 = idx(i)+1
-      j = idx(i)  ! starting index of one recurrence
-      JJ1 = j+ti(i)+1
-      JJ = j+ti(i) ! ending index of one recurrence
+    DO i = 1, num_crossings
+      j   = idx(i)     ! index before crossing
+      j1  = idx(i)+1   ! index after crossing
+      JJ  = j+ti(i)    ! index before return
+      JJ1 = j+ti(i)+1  ! index after return
 
-      x_j = x(j)
-      ! corresponding phases, corrected for the jumps
-      IF (x_j>p2) THEN
-        x_j = x_j-p
-      END IF
-      x_j1 = x(j1)
-      ! all phases are smaller then 2pi
-      IF (x_j1>p2) THEN
-        x_j1 = x_j1-p
-      END IF
-      x_jj = x(JJ)
-      IF (x_jj>p2) THEN
-        x_jj = x_jj-p
-      END IF
+      !! Corresponding phases
+      ! Before crossing are close to 'p'
+      x_j   = x(j)-p
+      x_jj  = x(JJ)-p
+      ! After crossing are just above zero
+      x_j1  = x(j1)
       x_jj1 = x(JJ1)
-      IF (x_jj1>p2) THEN
-        x_jj1 = x_jj1 - p
-      END IF
+
       idx_interp(i) = idx(i)- x_j/(x_j1-x_j)
       ti_interp(i)  = ti(i) + x_j/(x_j1-x_j)-x_jj/(x_jj1-x_jj)
     END DO

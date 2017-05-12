@@ -1,6 +1,10 @@
 
+import logging
 import numpy as np
 from .futils.futils import futils
+
+
+logger = logging.getLogger(name="phd.core")
 
 period = np.inf
 
@@ -12,6 +16,10 @@ def set_period(p):
     futils.set_period(p)
 
 set_period(2.0 * np.pi)
+
+
+def mod(x):
+    return np.mod(x, period)
 
 
 def unmod(x):
@@ -36,4 +44,21 @@ def threshold_data(x, threshold, n_min=1):
             for seg in segments[:num_segments]
     ]
     return slices
+
+
+def poincare_times(x, x0=0.0, interp=True):
+    x     = unmod(x)-x0
+    x_mod = mod(x)
+    idx, ti, n_idx = futils.poincare_times_no_false_returns(x_mod, x)
+    if n_idx == 0:
+        logger.info("no crossings found.")
+        return np.array([]), np.array([])
+    idx = idx[:n_idx] # -1 because fortran
+    ti  = ti[:n_idx]
+
+    if interp == True:
+        idx, ti = futils.poincare_times_interpolate(idx, ti, x_mod)
+
+    idx -= 1 # -1 because fortran
+    return idx, ti[:-1]
 
