@@ -68,6 +68,24 @@ def test_poincare_times():
     # plt.show()
 
 
+def test_gradient():
+    dt = 0.1
+    T  = 1.0
+    x0 = 3.0*np.pi/2
+
+    w = 2.0*np.pi/T
+    t = T * np.arange(0., 10., dt).astype(np.float64)
+    x = w * t
+    x_mod = phd.mod(x)
+    empirical = {
+        md: phd.core.gradient(x_mod, mode=md)/dt
+        for md in phd.core._gradient
+    }
+    for md, emp in empirical.items():
+        assert all(abs(w-emp)<10.0**-12), 'error in mode {}'.format(md)
+
+
 test_unmod()
 test_threshold_data()
 test_poincare_times()
+test_gradient()
